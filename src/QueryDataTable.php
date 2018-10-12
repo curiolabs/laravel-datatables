@@ -69,7 +69,39 @@ class QueryDataTable extends DataTableAbstract
         if ($this->config->isDebugging()) {
             $this->connection->enableQueryLog();
         }
+        $this->request->merge([ 'order' => $this->secureOrderBy( $this->request->order ) ]);
     }
+    
+   
+    /* CurioLabs Fix - prevent XSS injection on result data */
+    private function secureData($rows)
+    {
+        foreach ($rows as $r => $row) {
+            foreach ($row as $key => $val) {
+                $rows[$r][$key] = htmlentities($val);
+            }
+        }
+
+        return $rows;
+    }
+
+
+    /* CurioLabs Fix - prevent SQL injection on ORDER BY statement */
+    private function secureOrderBy($array)
+    {
+        $order = [];
+        foreach ($array as $key => $array2) {
+            $order[$key]['column'] = $array2['column'];
+            if ($array2['dir'] == 'asc') {
+                $order[$key]['dir'] = 'asc';
+            } else {
+                $order[$key]['dir'] = 'desc';
+            }
+        }
+
+        return $order;
+    }
+    
 
     /**
      * Organizes works.
@@ -86,7 +118,8 @@ class QueryDataTable extends DataTableAbstract
             $results   = $this->results();
             $processed = $this->processResults($results, $mDataSupport);
             $data      = $this->transform($results, $processed);
-
+            $data      = $this->secureData($data);
+            
             return $this->render($data);
         } catch (\Exception $exception) {
             return $this->errorResponse($exception);
